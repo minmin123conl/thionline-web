@@ -125,12 +125,16 @@ export async function POST(req: NextRequest) {
         headers: { "Content-Type": "application/json", Origin: origin },
         body: JSON.stringify({ email: input.email, password: input.password }),
       });
-      const data = (await res.json().catch(() => null)) as
-        | { user?: { id: string; email: string; name?: string } | null; code?: string; message?: string }
-        | null;
+      // Đọc text MỘT lần — parse sau (tránh clone body đã consume)
+      const rawText = await res.text().catch(() => "");
+      let data: { user?: { id: string; email: string; name?: string } | null; code?: string; message?: string } | null = null;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = null;
+      }
       if (!res.ok || !data?.user) {
         const msg = data?.code === "INVALID_EMAIL_OR_PASSWORD" ? "Email hoặc mật khẩu không đúng" : data?.message || "Đăng nhập thất bại";
-        const rawText = await res.clone().text().catch(() => "");
         return NextResponse.json(
           { error: msg, code: data?.code, debugOrigin: origin, debugStatus: res.status, debugBody: rawText.slice(0, 300) },
           { status: 401 }
