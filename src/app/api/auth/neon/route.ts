@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
         | null;
       if (!res.ok || !data?.user) {
         const msg = data?.code === "INVALID_EMAIL_OR_PASSWORD" ? "Email hoặc mật khẩu không đúng" : data?.message || "Đăng nhập thất bại";
-        return NextResponse.json({ error: msg, code: data?.code }, { status: 401 });
+        return NextResponse.json({ error: msg, code: data?.code, debugOrigin: origin }, { status: 401 });
       }
       // Verify session bằng set-cookie (token+signature) — chống token giả mạo
       const setCookies = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
