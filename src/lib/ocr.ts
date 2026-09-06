@@ -67,6 +67,32 @@ export async function pdfPageCount(pdfBytes: Uint8Array): Promise<number> {
   }
 }
 
+/**
+ * Đọc toàn bộ text của PDF có lớp chữ (dùng mupdf — thay pdf-parse).
+ * mupdf là WASM tự chứa, không cần DOMMatrix/@napi-rs/canvas nên chạy ổn
+ * trên serverless Vercel (pdf-parse throw "DOMMatrix is not defined").
+ */
+export async function pdfExtractText(pdfBytes: Uint8Array): Promise<{ text: string; totalPages: number }> {
+  const m = await mupdf();
+  const doc = m.Document.openDocument(pdfBytes);
+  try {
+    const totalPages = doc.countPages();
+    const parts: string[] = [];
+    for (let i = 0; i < totalPages; i++) {
+      const page = doc.loadPage(i);
+      try {
+        const st = page.toStructuredText();
+        parts.push(st.asText());
+      } finally {
+        page.destroy?.();
+      }
+    }
+    return { text: parts.join("\n\n"), totalPages };
+  } finally {
+    doc.destroy?.();
+  }
+}
+
 /** OCR trọn 1 trang PDF (render + nhận dạng). Caller tự quản lý index/progress. */
 export async function ocrPdfPage(pdfBase64: string, pageIndex: number): Promise<string> {
   const bytes = new Uint8Array(Buffer.from(pdfBase64, "base64"));

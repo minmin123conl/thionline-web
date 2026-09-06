@@ -50,27 +50,11 @@ export async function POST(req: NextRequest) {
       text = raw.value;
       html = converted.value.slice(0, 500_000);
     } else {
-      const { PDFParse } = await import("pdf-parse");
-      const parser = new PDFParse({ data: new Uint8Array(buf) });
-      try {
-        const info = await parser.getInfo();
-        totalPages = info?.total ?? 0;
-      } catch {
-        // getInfo lỗi không chặn — vẫn thử lấy text
-      }
-      const result = await parser.getText();
-      text = result.text ?? "";
-      await parser.destroy?.();
-      // Fallback: pdf-parse getInfo lỗi/nhận 0 trang → đếm trang bằng mupdf
-      // để OCR phía sau không bị bỏ qua vì totalPages = 0.
-      if (totalPages <= 0) {
-        try {
-          const { pdfPageCount } = await import("@/lib/ocr");
-          totalPages = await pdfPageCount(new Uint8Array(buf));
-        } catch {
-          // vẫn giữ 0 — extract sẽ báo lỗi rõ ràng khi không xác định được số trang
-        }
-      }
+      // mupdf đọc text + số trang (pdf-parse gây lỗi DOMMatrix trên serverless Vercel)
+      const { pdfExtractText } = await import("@/lib/ocr");
+      const { text: pdfText, totalPages: pages } = await pdfExtractText(new Uint8Array(buf));
+      text = pdfText;
+      totalPages = pages;
       if (text.replace(/\s/g, "").length < 50) {
         fileType = "pdf_scan";
         scanNote = `PDF scan ${totalPages > 0 ? `${totalPages} trang` : ""} — chưa có lớp chữ, cần OCR để đọc (nút "OCR" trong màn bên phải).`;
