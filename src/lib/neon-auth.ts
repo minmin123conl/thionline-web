@@ -61,7 +61,11 @@ export async function neonSignOut() {
   return api<{ success?: boolean }>("/sign-out", { method: "POST", body: "{}" });
 }
 
-/** URL bắt đầu Google OAuth flow — browser chuyển hướng sang đây. */
-export function neonGoogleSignIn(callbackURL: string) {
-  return `${NEON_AUTH_URL}/sign-in/social?provider=google&callbackURL=${encodeURIComponent(callbackURL)}`;
+/** Bắt đầu Google OAuth: POST lấy URL init từ Neon Auth rồi caller chuyển hướng sang đó. */
+export async function neonStartGoogleSignIn(callbackURL: string): Promise<string | null> {
+  const r = await api<{ url?: string; redirect?: boolean }>("/sign-in/social", {
+    method: "POST",
+    body: JSON.stringify({ provider: "google", callbackURL }),
+  });
+  return r.ok && r.data.url ? r.data.url : null;
 }

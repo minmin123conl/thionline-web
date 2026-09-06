@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { neonSignIn, neonGoogleSignIn, NEON_AUTH_URL } from "@/lib/neon-auth";
+import { neonSignIn, neonStartGoogleSignIn, NEON_AUTH_URL } from "@/lib/neon-auth";
 import { Button, Field, Input } from "./ui";
 
 export function LoginForm() {
@@ -12,6 +12,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   // Quay lại từ Google OAuth → cookie Neon Auth đã được set → đồng bộ session app
@@ -63,17 +64,23 @@ export function LoginForm() {
     }
   }
 
+  async function google() {
+    setOauthLoading(true);
+    setError("");
+    const url = await neonStartGoogleSignIn(window.location.origin + "/dang-nhap");
+    if (url) window.location.href = url;
+    else {
+      setError("Không bắt đầu được đăng nhập Google");
+      setOauthLoading(false);
+    }
+  }
+
   if (syncing) return <p className="py-8 text-center text-sm text-ink2">Đang hoàn tất đăng nhập Google…</p>;
 
   return (
     <div className="space-y-4">
-      <Button
-        variant="secondary"
-        onClick={() => (window.location.href = neonGoogleSignIn(window.location.origin + "/dang-nhap"))}
-        disabled={loading}
-        className="w-full"
-      >
-        Tiếp tục với Google
+      <Button variant="secondary" onClick={google} disabled={loading || oauthLoading} className="w-full">
+        {oauthLoading ? "Đang chuyển sang Google..." : "Tiếp tục với Google"}
       </Button>
       <div className="flex items-center gap-3 text-xs text-ink3">
         <span className="h-px flex-1 bg-line" />
