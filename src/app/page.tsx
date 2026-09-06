@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
+import { Logo } from "@/components/Logo";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export default async function Home() {
       {/* Header */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
         <div className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-blu text-lg font-extrabold text-white">T</span>
+          <Logo size={34} />
           <span className="font-display text-lg font-bold text-ink">ThiOnline</span>
         </div>
         <div className="flex items-center gap-2">

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { Logo } from "./Logo";
 
 type NavUser = { name: string; role: "ADMIN" | "TEACHER" | "STUDENT" };
 
@@ -39,7 +40,7 @@ export function NavBar({ user }: { user: NavUser }) {
     <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
         <Link href="/" className="flex items-center gap-2 font-bold text-ink">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blu text-sm font-extrabold text-white">T</span>
+          <Logo size={28} />
           ThiOnline
         </Link>
         <nav className="hidden items-center gap-1 md:flex">

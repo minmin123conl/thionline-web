@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { RegisterForm } from "@/components/RegisterForm";
+import { Logo } from "@/components/Logo";
 
 export const metadata = { title: "Đăng ký — ThiOnline" };
 
@@ -12,7 +13,9 @@ export default async function RegisterPage() {
       <div className="grid-paper absolute inset-0" aria-hidden />
       <div className="relative w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-blu text-2xl font-extrabold text-white shadow-[var(--shadow-contact)]">T</div>
+          <div className="mx-auto mb-4 w-fit">
+            <Logo size={56} />
+          </div>
           <h1 className="font-display text-[length:var(--step-3)] font-extrabold text-ink">Tạo tài khoản học sinh</h1>
           <p className="mt-2 text-sm text-ink2">Miễn phí — dùng email hoặc Google</p>
         </div>
