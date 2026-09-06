@@ -41,11 +41,8 @@ export default async function Home() {
           <span className="font-display text-lg font-bold text-ink">ThiOnline</span>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/dang-nhap" className="btn btn-ghost">
+          <Link href="/dang-nhap" className="btn btn-primary">
             Đăng nhập
-          </Link>
-          <Link href="/dang-ky" className="btn btn-primary">
-            Đăng ký miễn phí
           </Link>
         </div>
       </header>
@@ -65,11 +62,8 @@ export default async function Home() {
             Giáo viên tải đề lên, duyệt đáp án AI sinh, giao cho cả lớp. Học sinh thi ngay trên trình duyệt — đề đảo thứ tự riêng từng em, hết giờ tự khóa phần.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/dang-ky" className="btn btn-primary w-full text-base sm:w-auto">
-              Bắt đầu miễn phí →
-            </Link>
-            <Link href="/dang-nhap" className="btn btn-secondary w-full text-base sm:w-auto">
-              Đã có tài khoản
+            <Link href="/dang-nhap" className="btn btn-primary w-full text-base sm:w-auto">
+              Đăng nhập
             </Link>
           </div>
         </div>
@@ -117,20 +111,16 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* CTA + con dấu đỏ — memorable */}
-      <section className="relative overflow-hidden">
+      {/* Footer — con dấu đỏ làm dấu ấn thương hiệu */}
+      <section className="relative overflow-hidden border-t border-line">
         <div className="grid-paper absolute inset-0" aria-hidden />
-        <div className="relative mx-auto max-w-6xl px-4 py-20 text-center">
-          <div className="seal mx-auto mb-6 grid h-24 w-24 place-items-center text-center font-display text-[11px] font-bold uppercase leading-tight">
+        <div className="relative mx-auto flex max-w-6xl flex-col items-center gap-6 px-4 py-16 text-center">
+          <div className="seal grid h-20 w-20 place-items-center text-center font-display text-[11px] font-bold uppercase leading-tight">
             Chính xác
             <br />
             100%
           </div>
-          <h2 className="font-display text-[length:var(--step-3)] font-bold text-ink">Sẵn sàng cho kỳ kiểm tra tới?</h2>
-          <p className="mx-auto mt-3 max-w-md text-sm text-ink2">Miễn phí cho giáo viên Việt Nam. Không giới hạn số đề.</p>
-          <Link href="/dang-ky" className="btn btn-primary mt-7 text-base">
-            Tạo tài khoản giáo viên →
-          </Link>
+          <p className="text-sm text-ink2">Tài khoản do quản trị viên cấp — liên hệ trung tâm của bạn để được cấp quyền truy cập.</p>
         </div>
       </section>
 

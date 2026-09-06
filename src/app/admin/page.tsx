@@ -5,13 +5,12 @@ import { attempts, classRooms, documents, examTemplates, exams, users } from "@/
 import { requireUser } from "@/lib/auth";
 import { NavBar } from "@/components/NavBar";
 import { Badge, Card } from "@/components/ui";
-import { CreateUserForm } from "@/components/CreateUserForm";
+import { AdminUsersPanel } from "@/components/AdminUsersPanel";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Quản trị — ThiOnline" };
 
-const ROLE_LABEL: Record<string, string> = { ADMIN: "Quản trị", TEACHER: "Giáo viên", STUDENT: "Học sinh" };
 
 export default async function AdminPage() {
   let user;
@@ -68,10 +67,9 @@ export default async function AdminPage() {
         </div>
 
         <Card className="mt-6 p-4">
-          <CreateUserForm />
-          <p className="mt-2 text-xs text-slate-500">
-            Giáo viên không tự đăng ký được — tài khoản giáo viên do quản trị tạo. Học sinh tự đăng ký hoặc do giáo viên
-            tạo hàng loạt theo lớp.
+          <p className="text-sm text-ink2">
+            Quản lý tài khoản ở bảng phía dưới: tạo mới (giáo viên / học sinh / quản trị), đổi vai trò, xóa tài khoản.
+            Học sinh cũng có thể tự đăng ký.
           </p>
         </Card>
 
@@ -113,35 +111,10 @@ export default async function AdminPage() {
           </Card>
         </section>
 
-        <section className="mt-8">
-          <h2 className="text-lg font-semibold">Tài khoản ({userRows.length})</h2>
-          <Card className="mt-3 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Họ tên</th>
-                  <th className="px-4 py-2 font-medium">Đăng nhập</th>
-                  <th className="px-4 py-2 font-medium">Vai trò</th>
-                  <th className="px-4 py-2 font-medium">Tạo ngày</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {userRows.map((u) => (
-                  <tr key={u.id}>
-                    <td className="px-4 py-2.5 font-medium text-slate-800">{u.name}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{u.email}</td>
-                    <td className="px-4 py-2.5">
-                      <Badge color={u.role === "ADMIN" ? "red" : u.role === "TEACHER" ? "blue" : "slate"}>
-                        {ROLE_LABEL[u.role] ?? u.role}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-500">{u.createdAt.toLocaleDateString("vi-VN")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-        </section>
+        <AdminUsersPanel
+          meId={user.id}
+          initialUsers={userRows.map((u) => ({ ...u, role: u.role as "ADMIN" | "TEACHER" | "STUDENT", createdAt: u.createdAt.toISOString() }))}
+        />
       </main>
     </>
   );
