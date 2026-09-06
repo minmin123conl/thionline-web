@@ -6,12 +6,13 @@ import { sweepAllExpiredAttempts } from "@/lib/attempt";
 import { extractPendingDocument } from "@/lib/extract";
 
 /**
- * Cron server-side (Vercel Cron gọi mỗi phút).
+ * Cron server-side — chạy mỗi 5 phút qua GitHub Actions scheduled workflow
+ * (.github/workflows/cron-sweep.yml) gọi endpoint này; vercel.json chỉ giữ 1 cron
+ * daily làm dự phòng (Hobby giới hạn tần suất cron).
  * Làm 2 việc không phụ thuộc tab client:
  *  1) Quét & tự chốt điểm các lượt thi ACTIVE đã quá hạn (học sinh bỏ trống/tắt máy).
  *  2) Tiếp tục extraction cho tài liệu đang PROCESSING nhưng không ai còn bấm (đóng tab).
- * Xác thực bằng CRON_SECRET. Vercel Cron tự gửi secret này trong Authorization header
- * khi biến môi trường CRON_SECRET được cấu hình trên project.
+ * Xác thực bằng CRON_SECRET (header Authorization: Bearer hoặc ?token=).
  */
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;

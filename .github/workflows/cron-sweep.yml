@@ -1,0 +1,25 @@
+# Cron thay thế cho Vercel Cron (Hobby bị giới hạn 1 lần/ngày).
+# GitHub Actions scheduled workflow miễn phí với repo public, chạy mỗi 5 phút.
+# Gọi /api/cron trên production kèm CRON_SECRET.
+name: cron-sweep
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: # cho phép bấm chạy tay
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/cron
+        run: |
+          if [ -z "${{ secrets.CRON_SECRET }}" ] || [ -z "${{ secrets.VERCEL_URL }}" ]; then
+            echo "Thiếu secrets CRON_SECRET hoặc VERCEL_URL — bỏ qua (workflow vẫn OK)"
+            exit 0
+          fi
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --max-time 120 \
+            "${{ secrets.VERCEL_URL }}/api/cron" | head -c 500
+          echo ""
