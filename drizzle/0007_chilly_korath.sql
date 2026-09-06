@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "attempt_active_uq" ON "attempts" USING btree ("assignment_id","student_id") WHERE "attempts"."status" = 'ACTIVE';

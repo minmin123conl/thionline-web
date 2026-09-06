@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ADD COLUMN "locked_until" timestamp with time zone;

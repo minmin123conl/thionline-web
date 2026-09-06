@@ -1,0 +1,1 @@
+ALTER TABLE "exams" ADD COLUMN "ai_explanation_calls" integer DEFAULT 0 NOT NULL;
