@@ -2,8 +2,179 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* TYPE — 1.250 major third; Be Vietnam Pro qua next/font (variable --font-bevietnam) */
+  --font-display: var(--font-bevietnam), "Segoe UI", sans-serif;
+  --font-text: var(--font-bevietnam), "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --step--2: 0.64rem;
+  --step--1: 0.8rem;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.563rem;
+  --step-3: 1.953rem;
+  --step-4: 2.441rem;
+  --step-5: 3.052rem;
+
+  /* SPACE — base 0.25rem */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-s: 1rem;
+  --space-m: 1.5rem;
+  --space-l: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4.5rem;
+  --space-3xl: 7rem;
+
+  /* COLOR — giấy vở + mực xanh in, accent son đỏ con dấu */
+  --base: #faf8f2;
+  --surface: #ffffff;
+  --surface-2: #f4efe4;
+  --ink: #1c1917;
+  --ink-2: #57534e;
+  --ink-3: #a8a29e;
+  --line: #e7e2d9;
+  --line-2: #d6d0c3;
+  --accent-blue: #1d4ed8;
+  --accent-blue-hover: #1e40af;
+  --accent-blue-soft: #eef2ff;
+  --seal-red: #b91c1c;
+  --ok: #15803d;
+  --warn: #b45309;
+  --err: #b91c1c;
+
+  /* FORM — 1 radius, 1 shadow */
+  --radius: 0.75rem;
+  --border: 1px solid var(--line);
+  --shadow-contact: 0 1px 2px rgba(28, 25, 23, 0.06);
+
+  /* MOTION */
+  --dur-fast: 120ms;
+  --dur: 220ms;
+  --dur-slow: 420ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-family: var(--font-text);
+  background: var(--base);
+  color: var(--ink);
+  font-feature-settings: "ss01";
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.font-mono2 {
+  font-family: var(--font-mono);
+}
+
+/* Kẻ ô ly mờ phía sau hero — dấu ấn "vở học sinh" */
+.grid-paper {
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse 90% 80% at 50% 0%, black 30%, transparent 75%);
+}
+
+/* Con dấu tròn đỏ — memorable moment của landing */
+.seal {
+  border: 3px double var(--seal-red);
+  color: var(--seal-red);
+  border-radius: 999px;
+  transform: rotate(-12deg);
+  opacity: 0.85;
+}
+
+/* --- Components theo token --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xs);
+  border-radius: var(--radius);
+  padding: var(--space-2xs) var(--space-m);
+  font-size: var(--step-0);
+  font-weight: 600;
+  transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+  cursor: pointer;
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+.btn-primary {
+  background: var(--accent-blue);
+  color: #fff;
+  box-shadow: var(--shadow-contact);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-blue-hover);
+}
+.btn-secondary {
+  background: var(--surface);
+  color: var(--ink);
+  border: var(--border);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--line-2);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-2);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.btn-danger {
+  background: var(--seal-red);
+  color: #fff;
+}
+.btn-danger:hover:not(:disabled) {
+  background: #991b1b;
+}
+
+.input {
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  padding: var(--space-2xs) var(--space-2xs);
+  font-size: var(--step-0);
+  color: var(--ink);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.input::placeholder {
+  color: var(--ink-3);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px var(--accent-blue-soft);
+}
+.input:disabled {
+  background: var(--surface-2);
+  color: var(--ink-3);
 }
 
 .katex {
@@ -15,6 +186,6 @@ body {
   height: 6px;
 }
 .thin-scroll::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #d6d0c3;
   border-radius: 3px;
 }

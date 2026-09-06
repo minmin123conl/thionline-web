@@ -8,16 +8,18 @@ export default async function LoginPage() {
   const user = await getSessionUser();
   if (user) redirect("/");
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-      <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-700 text-xl font-bold text-white">T</div>
-          <h1 className="text-2xl font-bold text-slate-900">ThiOnline</h1>
-          <p className="mt-1 text-sm text-slate-500">Luyện thi và kiểm tra trực tuyến</p>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
+      <div className="grid-paper absolute inset-0" aria-hidden />
+      <div className="relative w-full max-w-md">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-blu text-2xl font-extrabold text-white shadow-[var(--shadow-contact)]">T</div>
+          <h1 className="font-display text-[length:var(--step-3)] font-extrabold text-ink">Đăng nhập ThiOnline</h1>
+          <p className="mt-2 text-sm text-ink2">Luyện thi và kiểm tra trực tuyến</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-line bg-surface p-6 shadow-[var(--shadow-contact)]">
           <LoginForm />
         </div>
+        <p className="mt-6 text-center text-xs text-ink3">Đăng nhập được bảo vệ bởi Neon Auth — hỗ trợ Google hoặc email.</p>
       </div>
     </div>
   );

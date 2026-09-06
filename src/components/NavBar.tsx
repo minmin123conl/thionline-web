@@ -36,10 +36,10 @@ export function NavBar({ user }: { user: NavUser }) {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
+    <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
-        <Link href="/" className="flex items-center gap-2 font-bold text-slate-900">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-700 text-sm text-white">T</span>
+        <Link href="/" className="flex items-center gap-2 font-bold text-ink">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blu text-sm font-extrabold text-white">T</span>
           ThiOnline
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
@@ -49,8 +49,8 @@ export function NavBar({ user }: { user: NavUser }) {
               <Link
                 key={it.href}
                 href={it.href}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                  active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-[var(--dur-fast)] ${
+                  active ? "bg-blu-soft text-blu" : "text-ink2 hover:bg-surface2 hover:text-ink"
                 }`}
               >
                 {it.label}
@@ -59,20 +59,22 @@ export function NavBar({ user }: { user: NavUser }) {
           })}
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <span className="hidden text-sm text-slate-600 sm:block">{user.name}</span>
-          <button onClick={logout} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">
+          <span className="hidden text-sm font-medium text-ink2 sm:block">{user.name}</span>
+          <button onClick={logout} className="btn btn-ghost text-sm">
             Đăng xuất
           </button>
         </div>
       </div>
-      <nav className="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 py-1.5 md:hidden">
+      <nav className="flex gap-1 overflow-x-auto border-t border-line px-4 py-1.5 md:hidden">
         {items.map((it) => {
           const active = pathname === it.href || pathname.startsWith(it.href + "/");
           return (
             <Link
               key={it.href}
               href={it.href}
-              className={`whitespace-nowrap rounded-lg px-3 py-1 text-sm ${active ? "bg-blue-50 text-blue-700" : "text-slate-600"}`}
+              className={`whitespace-nowrap rounded-lg px-3 py-1 text-sm ${
+                active ? "bg-blu-soft font-medium text-blu" : "text-ink2"
+              }`}
             >
               {it.label}
             </Link>

@@ -3,24 +3,28 @@ import { getSessionUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
+const STEPS = [
+  { n: "01", title: "Tải đề lên", desc: "Chọn file .docx hoặc PDF — kể cả bản scan. Hệ thống tự nhận diện câu trắc nghiệm, điền khuyết, đúng/sai." },
+  { n: "02", title: "Duyệt & sinh đáp án", desc: "AI Gemini đề xuất đáp án và lời giải cho từng câu. Giáo viên soát lại, sửa một lần rồi phát hành." },
+  { n: "03", title: "Giao & thi", desc: "Giao đề cho cả lớp theo lịch. Mỗi học sinh nhận đề đã đảo thứ tự; hết giờ phần nào khóa phần đó." },
+  { n: "04", title: "Chấm & báo cáo", desc: "Điểm tự động ngay khi nộp. Báo cáo cho biết câu nào cả lớp sai nhiều nhất để ôn lại." },
+];
+
 export default async function Home() {
   const user = await getSessionUser();
+  const homeByRole: Record<string, string> = { ADMIN: "/admin", TEACHER: "/giao-vien", STUDENT: "/hoc-sinh" };
 
-  // Đã đăng nhập → vào thẳng khu làm việc theo vai trò
-  const homeByRole: Record<string, string> = {
-    ADMIN: "/admin",
-    TEACHER: "/giao-vien",
-    STUDENT: "/hoc-sinh",
-  };
   if (user && homeByRole[user.role]) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-50 px-4">
-        <p className="text-sm text-slate-500">Bạn đang đăng nhập với vai trò {user.role === "ADMIN" ? "Quản trị viên" : user.role === "TEACHER" ? "Giáo viên" : "Học sinh"}.</p>
+      <main className="flex min-h-screen flex-col items-center justify-center gap-6 px-4">
+        <p className="text-sm text-ink2">
+          Bạn đang đăng nhập với vai trò {user.role === "ADMIN" ? "quản trị viên" : user.role === "TEACHER" ? "giáo viên" : "học sinh"}.
+        </p>
         <div className="flex gap-3">
-          <Link href={homeByRole[user.role]} className="rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800">
+          <Link href={homeByRole[user.role]} className="btn btn-primary">
             Vào khu làm việc →
           </Link>
-          <Link href="/api/auth/logout" className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-50">
+          <Link href="/api/auth/logout" className="btn btn-secondary">
             Đăng xuất
           </Link>
         </div>
@@ -28,126 +32,110 @@ export default async function Home() {
     );
   }
 
-  // Chưa đăng nhập → landing page
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen">
       {/* Header */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
         <div className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-blue-700 text-lg font-bold text-white">T</span>
-          <span className="text-lg font-bold text-slate-900">ThiOnline</span>
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-blu text-lg font-extrabold text-white">T</span>
+          <span className="font-display text-lg font-bold text-ink">ThiOnline</span>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/dang-nhap" className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+        <div className="flex items-center gap-2">
+          <Link href="/dang-nhap" className="btn btn-ghost">
             Đăng nhập
           </Link>
-          <Link href="/dang-ky" className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800">
+          <Link href="/dang-ky" className="btn btn-primary">
             Đăng ký miễn phí
           </Link>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="mx-auto max-w-6xl px-4 pb-16 pt-10 text-center sm:pt-16">
-        <h1 className="mx-auto max-w-3xl text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
-          Số hóa đề thi, tổ chức kiểm tra trực tuyến — <span className="text-blue-700">trong vài phút</span>
-        </h1>
-        <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
-          Tải đề lên file Word/PDF, hệ thống tự tách câu hỏi, sinh đáp án bằng AI, giao đề cho cả lớp và chấm điểm tự động.
-          Học sinh thi trực tuyến với đề đã được đảo thứ tự chống nhìn bài.
-        </p>
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href="/dang-ky" className="w-full rounded-lg bg-blue-700 px-6 py-3 text-center text-base font-semibold text-white hover:bg-blue-800 sm:w-auto">
-            Bắt đầu miễn phí
-          </Link>
-          <Link href="/dang-nhap" className="w-full rounded-lg border border-slate-300 bg-white px-6 py-3 text-center text-base font-semibold text-slate-800 hover:bg-slate-50 sm:w-auto">
-            Đã có tài khoản
-          </Link>
+      {/* Hero — kẻ ô ly vở học sinh */}
+      <section className="relative overflow-hidden">
+        <div className="grid-paper absolute inset-0" aria-hidden />
+        <div className="relative mx-auto max-w-6xl px-4 pb-20 pt-16 text-center">
+          <p className="mb-4 inline-block rounded-full border border-line2 bg-surface px-3 py-1 text-xs font-medium text-ink2">
+            HSA · TSA · V-ACT — đúng khuôn kỳ thi thật
+          </p>
+          <h1 className="font-display mx-auto max-w-3xl text-[length:var(--step-5)] font-extrabold leading-tight text-ink">
+            Từ đề trên giấy đến phòng thi trực tuyến,{" "}
+            <span className="text-blu">trong 4 bước</span>
+          </h1>
+          <p className="mx-auto mt-6 max-w-xl text-[length:var(--step-0)] leading-relaxed text-ink2">
+            Giáo viên tải đề lên, duyệt đáp án AI sinh, giao cho cả lớp. Học sinh thi ngay trên trình duyệt — đề đảo thứ tự riêng từng em, hết giờ tự khóa phần.
+          </p>
+          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link href="/dang-ky" className="btn btn-primary w-full text-base sm:w-auto">
+              Bắt đầu miễn phí →
+            </Link>
+            <Link href="/dang-nhap" className="btn btn-secondary w-full text-base sm:w-auto">
+              Đã có tài khoản
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* Tính năng */}
-      <section className="border-t border-slate-200 bg-white">
+      {/* 4 bước — dàn trải theo hàng ngang có số to cột trái, như mục lục sách */}
+      <section className="border-t border-line bg-surface">
         <div className="mx-auto max-w-6xl px-4 py-16">
-          <h2 className="text-center text-2xl font-bold text-slate-900">Một nền tảng — trọn quy trình</h2>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                title: "Số hóa đề tự động",
-                desc: "Tải đề .docx hoặc PDF — hệ thống tách câu trắc nghiệm, điền khuyết, đúng/sai; PDF scan được OCR tiếng Việt offline.",
-                icon: "📄",
-              },
-              {
-                title: "AI sinh đáp án & lời giải",
-                desc: "Gemini đề xuất đáp án cho câu còn thiếu và viết lời giải chi tiết — giáo viên duyệt lại trước khi phát hành.",
-                icon: "🤖",
-              },
-              {
-                title: "Phòng thi trực tuyến",
-                desc: "Chia phần thi theo giờ riêng, tự chấm và tự nộp khi hết giờ — học sinh tắt máy cũng không lo mất bài.",
-                icon: "⏱️",
-              },
-              {
-                title: "Chống gian lận",
-                desc: "Đảo thứ tự câu và lựa chọn theo từng học sinh (seed riêng), đề đóng băng snapshot — sửa đề sau đó không ảnh hưởng bài đang thi.",
-                icon: "🛡️",
-              },
-              {
-                title: "Quản lý lớp học",
-                desc: "Tạo lớp, mời học sinh bằng mã, tạo hàng loạt tài khoản, giao đề theo lịch mở/đóng rõ ràng.",
-                icon: "🏫",
-              },
-              {
-                title: "Báo cáo tức thì",
-                desc: "Điểm từng phần, câu nào sai nhiều nhất, lxem chi tiết từng bài làm — xuất cho giáo viên chấm thi.",
-                icon: "📊",
-              },
-            ].map((f) => (
-              <div key={f.title} className="rounded-xl border border-slate-200 bg-slate-50 p-6">
-                <div className="text-2xl">{f.icon}</div>
-                <h3 className="mt-3 font-semibold text-slate-900">{f.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600">{f.desc}</p>
+          <h2 className="font-display text-center text-[length:var(--step-3)] font-bold text-ink">Quy trình một kỳ kiểm tra</h2>
+          <div className="mt-12 grid gap-x-10 gap-y-10 sm:grid-cols-2">
+            {STEPS.map((s) => (
+              <div key={s.n} className="flex gap-5">
+                <span className="font-mono2 shrink-0 text-[length:var(--step-4)] font-bold leading-none text-blu/20">{s.n}</span>
+                <div>
+                  <h3 className="font-display text-[length:var(--step-1)] font-semibold text-ink">{s.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-ink2">{s.desc}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Phân vai */}
-      <section className="bg-slate-900">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:grid-cols-2">
+      {/* Chia đôi giáo viên / học sinh — nền mực đậm */}
+      <section className="bg-ink text-white">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:grid-cols-2">
           <div>
-            <h2 className="text-2xl font-bold text-white">Dành cho giáo viên</h2>
-            <ul className="mt-4 space-y-2.5 text-sm text-slate-300">
-              <li>✓ Soạn và duyệt đề từ file có sẵn — không gõ lại</li>
-              <li>✓ Giao đề cho lớp với số lượt làm và thời gian tùy chọn</li>
-              <li>✓ Theo dõi bài làm đang diễn ra, khóa bài quá hạn</li>
-              <li>✓ Báo cáo kết quả tự động sau khi học sinh nộp</li>
+            <h2 className="font-display text-[length:var(--step-2)] font-bold">Dành cho giáo viên</h2>
+            <ul className="mt-5 space-y-3 text-sm leading-relaxed text-white/80">
+              <li>— Soạn đề từ file có sẵn, không gõ lại từ đầu</li>
+              <li>— AI sinh đáp án kèm lời giải, duyệt rồi mới phát hành</li>
+              <li>— Giao đề theo lịch, giới hạn số lượt làm</li>
+              <li>— Báo cáo tự động: điểm, câu sai nhiều, bài chưa nộp</li>
             </ul>
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white">Dành cho học sinh</h2>
-            <ul className="mt-4 space-y-2.5 text-sm text-slate-300">
-              <li>✓ Vào phòng thi bằng mã lớp, không cần cài app</li>
-              <li>✓ Làm bài từng phần, đồng hồ hiển thị đúng thời gian còn lại</li>
-              <li>✓ Đáp án lưu tự động, mất mạng vẫn không mất bài</li>
-              <li>✓ Xem điểm và lời giải ngay sau khi nộp (nếu đề cho phép)</li>
+            <h2 className="font-display text-[length:var(--step-2)] font-bold">Dành cho học sinh</h2>
+            <ul className="mt-5 space-y-3 text-sm leading-relaxed text-white/80">
+              <li>— Vào thi bằng mã lớp, không cần cài ứng dụng</li>
+              <li>— Đồng hồ từng phần như phòng thi thật</li>
+              <li>— Đáp án lưu tự động mỗi giây — mất mạng không mất bài</li>
+              <li>— Xem điểm và lời giải ngay khi nộp (nếu đề cho phép)</li>
             </ul>
           </div>
         </div>
       </section>
 
-      {/* Footer CTA */}
-      <section className="bg-slate-50 py-16 text-center">
-        <h2 className="text-2xl font-bold text-slate-900">Sẵn sàng tổ chức kỳ kiểm tra đầu tiên?</h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600">Miễn phí, không giới hạn số đề cho giáo viên Việt Nam.</p>
-        <Link href="/dang-ky" className="mt-6 inline-block rounded-lg bg-blue-700 px-6 py-3 text-base font-semibold text-white hover:bg-blue-800">
-          Tạo tài khoản giáo viên →
-        </Link>
+      {/* CTA + con dấu đỏ — memorable */}
+      <section className="relative overflow-hidden">
+        <div className="grid-paper absolute inset-0" aria-hidden />
+        <div className="relative mx-auto max-w-6xl px-4 py-20 text-center">
+          <div className="seal mx-auto mb-6 grid h-24 w-24 place-items-center text-center font-display text-[11px] font-bold uppercase leading-tight">
+            Chính xác
+            <br />
+            100%
+          </div>
+          <h2 className="font-display text-[length:var(--step-3)] font-bold text-ink">Sẵn sàng cho kỳ kiểm tra tới?</h2>
+          <p className="mx-auto mt-3 max-w-md text-sm text-ink2">Miễn phí cho giáo viên Việt Nam. Không giới hạn số đề.</p>
+          <Link href="/dang-ky" className="btn btn-primary mt-7 text-base">
+            Tạo tài khoản giáo viên →
+          </Link>
+        </div>
       </section>
 
-      <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-400">
-        ThiOnline — Nền tảng luyện thi và kiểm tra trực tuyến
+      <footer className="border-t border-line bg-surface py-6 text-center text-xs text-ink3">
+        ThiOnline — nền tảng luyện thi và kiểm tra trực tuyến
       </footer>
     </main>
   );
