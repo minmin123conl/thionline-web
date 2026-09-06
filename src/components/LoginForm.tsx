@@ -45,7 +45,7 @@ export function LoginForm() {
   async function google() {
     setOauthLoading(true);
     setError("");
-    const url = await appStartGoogle(window.location.origin + "/dang-nhap");
+    const url = await appStartGoogle("/dang-nhap");
     if (url) window.location.href = url;
     else {
       setError("Không bắt đầu được đăng nhập Google");

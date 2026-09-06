@@ -7,6 +7,15 @@ import { requireRole } from "@/lib/auth";
 
 const NEON_AUTH_URL = (process.env.NEON_AUTH_URL || process.env.NEXT_PUBLIC_NEON_AUTH_URL || "").replace(/\/+$/, "");
 
+/** Origin công khai của app — Neon Auth check trusted_origins theo cái này */
+function appUrl(req: NextRequest): string {
+  const envUrl = process.env.NEON_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  if (envUrl) return envUrl.replace(/\/+$/, "");
+  const host = req.headers.get("host") || "localhost:3000";
+  const proto = host.includes("localhost") ? "http" : "https";
+  return `${proto}://${host}`;
+}
+
 export async function GET() {
   try {
     await requireRole("ADMIN");
@@ -53,8 +62,8 @@ export async function POST(req: NextRequest) {
   const exists = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
   if (exists.length > 0) return NextResponse.json({ error: "Email đã tồn tại trong hệ thống" }, { status: 409 });
 
-  // 1) Tạo tài khoản trên Neon Auth
-  const origin = req.headers.get("origin") || `http://${req.headers.get("host")}`;
+  // 1) Tạo tài khoản trên Neon Auth (callbackURL là path tương đối — ghép với Origin)
+  const origin = appUrl(req);
   const res = await fetch(`${NEON_AUTH_URL}/sign-up/email`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: origin },
@@ -62,7 +71,7 @@ export async function POST(req: NextRequest) {
       email,
       password: parsed.data.password,
       name: parsed.data.name.trim(),
-      callbackURL: origin + "/dang-nhap",
+      callbackURL: "/dang-nhap",
     }),
   });
   const data = (await res.json().catch(() => null)) as

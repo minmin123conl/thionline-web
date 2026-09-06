@@ -52,12 +52,12 @@ export async function appSignUp(name: string, email: string, password: string): 
   return { ok: true, user: data.user };
 }
 
-/** Bắt đầu Google OAuth: trả URL init để browser chuyển hướng. */
-export async function appStartGoogle(callbackURL: string): Promise<string | null> {
+/** Bắt đầu Google OAuth: trả URL init để browser chuyển hướng. callbackURL là PATH. */
+export async function appStartGoogle(callbackPath: string): Promise<string | null> {
   const res = await fetch("/api/auth/neon", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "social-start", provider: "google", callbackURL }),
+    body: JSON.stringify({ action: "social-start", provider: "google", callbackURL: callbackPath }),
   });
   const data = (await res.json().catch(() => null)) as { url?: string } | null;
   return data?.url ?? null;

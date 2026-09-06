@@ -7,18 +7,28 @@ import { createSession } from "@/lib/auth";
 /**
  * POST /api/auth/neon — proxy Neon Auth (Better Auth) cho web app.
  *
- * Server gọi Neon Auth REST, tự giữ cookie (token+signature) để verify
- * get-session, đồng bộ user vào bảng `users`, và set session JWT app.
+ * Server gọi Neon Auth REST với Origin/URL chính xác của app (từ host header
+ * hoặc env), tự giữ cookie (token+signature) để verify get-session, đồng bộ
+ * user vào bảng `users`, và set session JWT app.
  *
  * action:
  *  - sign-in: {email, password}
  *  - sign-up: {name, email, password}
  *  - social-start: {provider, callbackURL} → trả URL init Google
- *  - finish-google: đọc cookie Neon Auth từ request (browser gửi kèm khi
- *    quay về từ Google — cookie SameSite=None) → verify → tạo session app
+ *  - sync-user: {email, neonId, name} — gọi BỞI MIDDLEWARE sau OAuth exchange
+ *    (chỉ chấp nhận khi có x-internal-key đúng CRON_SECRET)
  */
 
 const NEON_AUTH_URL = (process.env.NEON_AUTH_URL || process.env.NEXT_PUBLIC_NEON_AUTH_URL || "").replace(/\/+$/, "");
+
+/** Origin/URL công khai của app — Neon Auth check trusted_origins theo cái này */
+function appUrl(req: NextRequest): string {
+  const envUrl = process.env.NEON_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  if (envUrl) return envUrl.replace(/\/+$/, "");
+  const host = req.headers.get("host") || "localhost:3000";
+  const proto = host.includes("localhost") ? "http" : "https";
+  return `${proto}://${host}`;
+}
 
 /** Gọi get-session với chuỗi cookie; trả user hoặc null.
  *  Better Auth trả { session: {...}, user: {...} } — user nằm ở TOP-LEVEL. */
@@ -78,14 +88,36 @@ export async function POST(req: NextRequest) {
   if (!NEON_AUTH_URL) return NextResponse.json({ error: "Máy chủ chưa cấu hình NEON_AUTH_URL" }, { status: 503 });
 
   const body = (await req.json().catch(() => null)) as
-    | { action?: string; email?: string; password?: string; name?: string; provider?: string; callbackURL?: string }
+    | { action?: string; email?: string; password?: string; name?: string; provider?: string; callbackURL?: string; neonId?: string }
     | null;
   const action = body?.action;
   if (!action) return NextResponse.json({ error: "action không hợp lệ" }, { status: 400 });
   const input = body;
-  const origin = req.headers.get("origin") || `http://${req.headers.get("host")}`;
+  const origin = appUrl(req);
 
   try {
+    // ---- Đồng bộ user từ middleware (sau OAuth exchange) ----
+    if (action === "sync-user") {
+      const key = req.headers.get("x-internal-key");
+      if (!process.env.CRON_SECRET || key !== process.env.CRON_SECRET) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (!input.email) return NextResponse.json({ error: "Thiếu email" }, { status: 400 });
+      // upsert user theo email (id Neon Auth có thể khác nếu tài khoản local cũ cùng email)
+      const existing = await db.select().from(users).where(eq(users.email, input.email.toLowerCase()));
+      if (existing.length === 0) {
+        if (!input.neonId) return NextResponse.json({ error: "Thiếu neonId" }, { status: 400 });
+        await db.insert(users).values({
+          id: input.neonId,
+          email: input.email.toLowerCase(),
+          passwordHash: "neon-auth",
+          name: input.name?.trim() || input.email.split("@")[0],
+          role: "STUDENT",
+        });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     // ---- Đăng nhập email/password ----
     if (action === "sign-in" && input.email && input.password) {
       const res = await fetch(`${NEON_AUTH_URL}/sign-in/email`, {
@@ -101,13 +133,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: msg, code: data?.code }, { status: 401 });
       }
       // Verify session bằng set-cookie (token+signature) — chống token giả mạo
-      const setCookie = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
-      const sessionCookie = setCookie.find((c) => c.includes("neon-auth.session_token"));
-      if (!sessionCookie) {
-        return NextResponse.json({ error: "Không xác thực được session" }, { status: 401 });
-      }
-      const cookieStr = sessionCookie.split(";")[0];
-      const verified = await verifySession(cookieStr);
+      const setCookies = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
+      const sessionCookie = setCookies.find((c) => c.includes("neon-auth.session_token"));
+      if (!sessionCookie) return NextResponse.json({ error: "Không xác thực được session" }, { status: 401 });
+      const verified = await verifySession(sessionCookie.split(";")[0]);
       if (!verified) return NextResponse.json({ error: "Không xác thực được session" }, { status: 401 });
 
       const out = await syncAndCreateSession(verified);
@@ -116,6 +145,7 @@ export async function POST(req: NextRequest) {
 
     // ---- Đăng ký email/password ----
     if (action === "sign-up" && input.email && input.password && input.name) {
+      // callbackURL dùng PATH TƯƠNG ĐỐI — Better Auth ghép với Origin (tránh INVALID_CALLBACK_URL)
       const res = await fetch(`${NEON_AUTH_URL}/sign-up/email`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Origin: origin },
@@ -123,7 +153,7 @@ export async function POST(req: NextRequest) {
           email: input.email,
           password: input.password,
           name: input.name,
-          callbackURL: origin + "/dang-ky",
+          callbackURL: "/dang-ky",
         }),
       });
       const data = (await res.json().catch(() => null)) as
@@ -138,9 +168,10 @@ export async function POST(req: NextRequest) {
               : data?.message || "Đăng ký thất bại";
         return NextResponse.json({ error: msg, code: data?.code }, { status: 400 });
       }
-      const setCookie = res.headers.get("set-cookie") || "";
-      const cookieStr = setCookie.split(";")[0];
-      const verified = await verifySession(cookieStr);
+      const setCookies = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
+      const sessionCookie = setCookies.find((c) => c.includes("neon-auth.session_token"));
+      if (!sessionCookie) return NextResponse.json({ error: "Không xác thực được session" }, { status: 401 });
+      const verified = await verifySession(sessionCookie.split(";")[0]);
       if (!verified) return NextResponse.json({ error: "Không xác thực được session" }, { status: 401 });
 
       const out = await syncAndCreateSession(verified, input.name);
@@ -149,10 +180,12 @@ export async function POST(req: NextRequest) {
 
     // ---- Bắt đầu Google OAuth ----
     if (action === "social-start" && input.callbackURL) {
+      // callbackURL phải là path tương đối — Neon Auth ghép với Origin
+      const cbPath = input.callbackURL.startsWith("/") ? input.callbackURL : new URL(input.callbackURL).pathname;
       const res = await fetch(`${NEON_AUTH_URL}/sign-in/social`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Origin: origin },
-        body: JSON.stringify({ provider: input.provider || "google", callbackURL: input.callbackURL }),
+        body: JSON.stringify({ provider: input.provider || "google", callbackURL: cbPath }),
       });
       const data = (await res.json().catch(() => null)) as { url?: string } | null;
       if (!res.ok || !data?.url) return NextResponse.json({ error: "Không bắt đầu được OAuth" }, { status: 502 });
@@ -161,7 +194,6 @@ export async function POST(req: NextRequest) {
 
     // ---- Hoàn tất Google OAuth (browser quay về kèm cookie Neon Auth) ----
     if (action === "finish-google") {
-      // Forward cookie Neon Auth từ request browser (SameSite=None nên đi kèm cross-site redirect)
       const cookie = req.headers.get("cookie") ?? "";
       const neonCookie = cookie
         .split(";")

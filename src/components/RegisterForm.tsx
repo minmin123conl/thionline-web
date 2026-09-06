@@ -46,7 +46,7 @@ export function RegisterForm() {
   async function google() {
     setOauthLoading(true);
     setError("");
-    const url = await appStartGoogle(window.location.origin + "/dang-ky");
+    const url = await appStartGoogle("/dang-ky");
     if (url) window.location.href = url;
     else {
       setError("Không bắt đầu được đăng ký Google");

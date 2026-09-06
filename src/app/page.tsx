@@ -65,6 +65,9 @@ export default async function Home() {
             <Link href="/dang-nhap" className="btn btn-primary w-full text-base sm:w-auto">
               Đăng nhập
             </Link>
+            <Link href="/dang-ky" className="btn btn-secondary w-full text-base sm:w-auto">
+              Tạo tài khoản
+            </Link>
           </div>
         </div>
       </section>
@@ -120,7 +123,7 @@ export default async function Home() {
             <br />
             100%
           </div>
-          <p className="text-sm text-ink2">Tài khoản do quản trị viên cấp — liên hệ trung tâm của bạn để được cấp quyền truy cập.</p>
+          <p className="text-sm text-ink2">Học sinh tự tạo tài khoản — giáo viên và quản trị do quản trị viên cấp.</p>
         </div>
       </section>
 
