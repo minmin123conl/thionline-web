@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
+import { LogoutButton } from "@/components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +13,24 @@ const STEPS = [
   { n: "04", title: "Chấm & báo cáo", desc: "Điểm tự động ngay khi nộp. Báo cáo cho biết câu nào cả lớp sai nhiều nhất để ôn lại." },
 ];
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ token?: string; error?: string }> | { token?: string; error?: string };
+}) {
   const user = await getSessionUser();
   const homeByRole: Record<string, string> = { ADMIN: "/admin", TEACHER: "/giao-vien", STUDENT: "/hoc-sinh" };
+
+  // "Thụ thể" token: link đặt lại mật khẩu từ email cũ có thể rơi về trang chủ
+  // (callbackURL mặc định của Neon Auth) — chuyển tiếp sang đúng trang đặt lại.
+  const sp = typeof searchParams === "object" && "then" in searchParams ? await searchParams : (searchParams as { token?: string });
+  if (sp?.token) {
+    redirect(`/dat-lai-mat-khau?token=${encodeURIComponent(sp.token)}`);
+  }
+  // Token hết hạn/sai từ Neon Auth cũng về đây kèm ?error= — chuyển tiếp để hiện thông báo
+  if (sp && "error" in sp && (sp as { error?: string }).error) {
+    redirect("/dat-lai-mat-khau");
+  }
 
   if (user && homeByRole[user.role]) {
     return (
@@ -25,9 +42,7 @@ export default async function Home() {
           <Link href={homeByRole[user.role]} className="btn btn-primary">
             Vào khu làm việc →
           </Link>
-          <Link href="/api/auth/logout" className="btn btn-secondary">
-            Đăng xuất
-          </Link>
+          <LogoutButton />
         </div>
       </main>
     );

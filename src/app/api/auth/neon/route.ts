@@ -97,12 +97,14 @@ export async function POST(req: NextRequest) {
   try {
     // ---- Quên mật khẩu: gửi email đặt lại ----
     if (action === "forgot-password" && input.email) {
-      // Neon Auth trả OK kể cả email không tồn tại (chống dò email) —
-      // không bao giờ lộ thông tin tài khoản qua response khác nhau.
+      // callbackURL PHẢI tuyệt đối — Neon Auth nhúng vào link trong email:
+      //   .../verify-email?token=xxx&callbackURL=<giá trị này>
+      // Khi user click, Neon Auth verify xong redirect về callbackURL + ?token=xxx.
+      // Neon Auth trả OK kể cả email không tồn tại (chống dò email).
       const res = await fetch(`${NEON_AUTH_URL}/request-password-reset`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Origin: origin },
-        body: JSON.stringify({ email: input.email, callbackURL: "/dat-lai-mat-khau" }),
+        body: JSON.stringify({ email: input.email, callbackURL: `${origin}/dat-lai-mat-khau` }),
       });
       if (!res.ok) {
         // Lỗi hệ thống (không phải "email không tồn tại") — vẫn ẩn chi tiết

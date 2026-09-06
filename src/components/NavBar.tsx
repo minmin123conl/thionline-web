@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Logo } from "./Logo";
 
 type NavUser = { name: string; role: "ADMIN" | "TEACHER" | "STUDENT" };
@@ -27,13 +27,12 @@ const NAV: Record<string, { href: string; label: string }[]> = {
 
 export function NavBar({ user }: { user: NavUser }) {
   const pathname = usePathname();
-  const router = useRouter();
   const items = NAV[user.role] ?? [];
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/dang-nhap");
-    router.refresh();
+    // Hard navigation (không dùng router cache) — đảm bảo session thật sự hết
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    window.location.href = "/dang-nhap";
   }
 
   return (
