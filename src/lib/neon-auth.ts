@@ -1,23 +1,14 @@
 /**
- * Neon Auth (Managed Better Auth) — tích hợp bằng REST, không cần SDK.
- * SDK @neondatabase/auth yêu cầu Next >= 16, dự án đang Next 14; Better Auth
- * exposes đầy đủ HTTP endpoint nên gọi trực tiếp là ổn định nhất.
+ * Neon Auth (Managed Better Auth) — tích hợp qua proxy route của app.
  *
- * Client (browser) gọi thẳng endpoint Neon Auth với credentials: "include"
- * (cookie session do Neon Auth set, cross-origin đã được CORS cho phép).
- * Server verify session qua /get-session khi cần (route neon-callback).
+ * Vì sao không gọi thẳng từ browser: cookie session Neon Auth là HttpOnly trên
+ * domain Neon Auth; sign-in response có `token` nhưng thiếu signature để server
+ * verify lại. Nên mọi luồng sign-in/sign-up đi qua /api/auth/neon (server-side),
+ * server bọc cookie thật (token+signature từ set-cookie) để get-session verify,
+ * rồi mới tạo session JWT của app.
+ *
+ * Client chỉ gọi: POST /api/auth/neon?action=sign-in|sign-up|social-start
  */
-
-const RAW_URL =
-  process.env.NEXT_PUBLIC_NEON_AUTH_URL ||
-  process.env.VITE_NEON_AUTH_URL ||
-  (typeof window !== "undefined" ? (window as unknown as { ENV_NEON_AUTH_URL?: string }).ENV_NEON_AUTH_URL : undefined);
-
-export const NEON_AUTH_URL = (RAW_URL || "").replace(/\/+$/, "");
-
-if (!NEON_AUTH_URL && typeof console !== "undefined") {
-  console.warn("NEON_AUTH_URL chưa cấu hình — đăng nhập Neon Auth sẽ không hoạt động");
-}
 
 export type NeonAuthUser = {
   id: string;
@@ -25,47 +16,59 @@ export type NeonAuthUser = {
   name: string;
 };
 
-async function api<T>(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T }> {
-  const res = await fetch(`${NEON_AUTH_URL}${path}`, {
-    credentials: "include",
+export type NeonAuthResult =
+  | { ok: true; user: NeonAuthUser }
+  | { ok: false; code: string; message: string };
+
+function errMsg(code: unknown, message: unknown, fallback: string): string {
+  return (typeof message === "string" && message) || (typeof code === "string" && code) || fallback;
+}
+
+/** Đăng nhập email/password qua proxy. Thành công → cookie app session đã set. */
+export async function appSignIn(email: string, password: string): Promise<NeonAuthResult> {
+  const res = await fetch("/api/auth/neon", {
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    ...init,
+    body: JSON.stringify({ action: "sign-in", email, password }),
   });
-  const data = (await res.json().catch(() => null)) as T;
-  return { ok: res.ok, status: res.status, data };
+  const data = (await res.json().catch(() => null)) as
+    | { ok?: boolean; user?: NeonAuthUser; code?: string; message?: string }
+    | null;
+  if (!res.ok || !data?.ok || !data.user) return { ok: false, code: data?.code || "UNKNOWN", message: errMsg(data?.code, data?.message, "Đăng nhập thất bại") };
+  return { ok: true, user: data.user };
 }
 
-/** Đăng ký bằng email/password. Trả về user hoặc message lỗi. */
-export async function neonSignUp(input: { email: string; password: string; name: string; callbackURL: string }) {
-  return api<{ user?: NeonAuthUser; code?: string; message?: string }>("/sign-up/email", {
+/** Đăng ký email/password qua proxy. Thành công → cookie app session đã set. */
+export async function appSignUp(name: string, email: string, password: string): Promise<NeonAuthResult> {
+  const res = await fetch("/api/auth/neon", {
     method: "POST",
-    body: JSON.stringify(input),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "sign-up", name, email, password }),
   });
+  const data = (await res.json().catch(() => null)) as
+    | { ok?: boolean; user?: NeonAuthUser; code?: string; message?: string }
+    | null;
+  if (!res.ok || !data?.ok || !data.user) return { ok: false, code: data?.code || "UNKNOWN", message: errMsg(data?.code, data?.message, "Đăng ký thất bại") };
+  return { ok: true, user: data.user };
 }
 
-/** Đăng nhập bằng email/password — Neon Auth set cookie session (httpOnly). */
-export async function neonSignIn(input: { email: string; password: string; callbackURL?: string }) {
-  return api<{ user?: NeonAuthUser; code?: string; message?: string }>("/sign-in/email", {
+/** Bắt đầu Google OAuth: trả URL init để browser chuyển hướng. */
+export async function appStartGoogle(callbackURL: string): Promise<string | null> {
+  const res = await fetch("/api/auth/neon", {
     method: "POST",
-    body: JSON.stringify(input),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "social-start", provider: "google", callbackURL }),
   });
+  const data = (await res.json().catch(() => null)) as { url?: string } | null;
+  return data?.url ?? null;
 }
 
-/** Lấy session hiện tại từ cookie Neon Auth (đã set khi sign-in). */
-export async function neonGetSession() {
-  return api<{ user?: NeonAuthUser | null }>("/get-session", { method: "GET" });
-}
-
-/** Đăng xuất — xóa cookie session Neon Auth. */
-export async function neonSignOut() {
-  return api<{ success?: boolean }>("/sign-out", { method: "POST", body: "{}" });
-}
-
-/** Bắt đầu Google OAuth: POST lấy URL init từ Neon Auth rồi caller chuyển hướng sang đó. */
-export async function neonStartGoogleSignIn(callbackURL: string): Promise<string | null> {
-  const r = await api<{ url?: string; redirect?: boolean }>("/sign-in/social", {
+/** Sau khi Google redirect về: hoàn tất session app (server đọc cookie Neon Auth). */
+export async function appFinishGoogle(): Promise<{ ok: boolean; redirect?: string }> {
+  const res = await fetch("/api/auth/neon", {
     method: "POST",
-    body: JSON.stringify({ provider: "google", callbackURL }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "finish-google" }),
   });
-  return r.ok && r.data.url ? r.data.url : null;
+  return { ok: res.ok, redirect: (await res.json().catch(() => null))?.redirect };
 }

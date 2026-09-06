@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { neonSignIn, neonStartGoogleSignIn, NEON_AUTH_URL } from "@/lib/neon-auth";
+import { appSignIn, appStartGoogle, appFinishGoogle } from "@/lib/neon-auth";
 import { Button, Field, Input } from "./ui";
 
 export function LoginForm() {
@@ -15,20 +15,14 @@ export function LoginForm() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  // Quay lại từ Google OAuth → cookie Neon Auth đã được set → đồng bộ session app
+  // Quay lại từ Google OAuth → hoàn tất session app
   useEffect(() => {
-    if (!NEON_AUTH_URL) return;
     (async () => {
-      try {
-        const res = await fetch("/api/auth/neon-callback", { method: "POST" });
-        if (res.ok) {
-          setSyncing(true);
-          const data = await res.json();
-          router.push(data.redirect);
-          router.refresh();
-        }
-      } catch {
-        /* chưa có session Neon Auth — bỏ qua */
+      const r = await appFinishGoogle();
+      if (r.ok && r.redirect) {
+        setSyncing(true);
+        router.push(r.redirect);
+        router.refresh();
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -38,36 +32,20 @@ export function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    try {
-      const r = await neonSignIn({ email, password, callbackURL: "/" });
-      if (!r.ok || !r.data.user) {
-        const msg =
-          r.data.code === "INVALID_EMAIL_OR_PASSWORD"
-            ? "Email hoặc mật khẩu không đúng"
-            : r.data.message || "Đăng nhập thất bại";
-        setError(msg);
-        setLoading(false);
-        return;
-      }
-      const res = await fetch("/api/auth/neon-callback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: r.data.user.name }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Đồng bộ tài khoản thất bại");
-      router.push(data.redirect);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Đăng nhập thất bại");
+    const r = await appSignIn(email, password);
+    if (!r.ok) {
+      setError(r.message);
       setLoading(false);
+      return;
     }
+    // Proxy đã set cookie session app → về trang chủ, home sẽ điều hướng theo role
+    window.location.href = "/";
   }
 
   async function google() {
     setOauthLoading(true);
     setError("");
-    const url = await neonStartGoogleSignIn(window.location.origin + "/dang-nhap");
+    const url = await appStartGoogle(window.location.origin + "/dang-nhap");
     if (url) window.location.href = url;
     else {
       setError("Không bắt đầu được đăng nhập Google");
@@ -95,7 +73,7 @@ export function LoginForm() {
           <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required placeholder="••••••••" />
         </Field>
         {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-err">{error}</p>}
-        <Button type="submit" disabled={loading} className="w-full">
+        <Button type="submit" disabled={loading || oauthLoading} className="w-full">
           {loading ? "Đang đăng nhập..." : "Đăng nhập"}
         </Button>
       </form>

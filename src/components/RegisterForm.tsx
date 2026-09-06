@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { neonSignUp, neonStartGoogleSignIn, NEON_AUTH_URL } from "@/lib/neon-auth";
+import { appSignUp, appStartGoogle, appFinishGoogle } from "@/lib/neon-auth";
 import { Button, Field, Input } from "./ui";
 
 export function RegisterForm() {
@@ -16,20 +16,14 @@ export function RegisterForm() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  // Quay lại từ Google OAuth → cookie Neon Auth đã set → đồng bộ session app
+  // Quay lại từ Google OAuth → hoàn tất session app
   useEffect(() => {
-    if (!NEON_AUTH_URL) return;
     (async () => {
-      try {
-        const res = await fetch("/api/auth/neon-callback", { method: "POST" });
-        if (res.ok) {
-          setSyncing(true);
-          const data = await res.json();
-          router.push(data.redirect);
-          router.refresh();
-        }
-      } catch {
-        /* chưa có session Neon Auth — bỏ qua */
+      const r = await appFinishGoogle();
+      if (r.ok && r.redirect) {
+        setSyncing(true);
+        router.push(r.redirect);
+        router.refresh();
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -39,44 +33,20 @@ export function RegisterForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    try {
-      const r = await neonSignUp({
-        email,
-        password,
-        name,
-        callbackURL: window.location.origin + "/dang-ky",
-      });
-      if (!r.ok || !r.data.user) {
-        const msg =
-          r.data.code === "USER_ALREADY_EXISTS"
-            ? "Email này đã có tài khoản — thử đăng nhập"
-            : r.data.code === "WEAK_PASSWORD"
-              ? "Mật khẩu chưa đủ mạnh (tối thiểu 8 ký tự)"
-              : r.data.message || "Đăng ký thất bại";
-        setError(msg);
-        setLoading(false);
-        return;
-      }
-      // Sign-up thành công — Neon Auth đã set cookie session → đồng bộ app session
-      const res = await fetch("/api/auth/neon-callback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Đồng bộ tài khoản thất bại");
-      router.push(data.redirect);
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Đăng ký thất bại");
+    const r = await appSignUp(name, email, password);
+    if (!r.ok) {
+      setError(r.message);
       setLoading(false);
+      return;
     }
+    // Proxy đã set cookie session app → về trang chủ, home điều hướng theo role
+    window.location.href = "/";
   }
 
   async function google() {
     setOauthLoading(true);
     setError("");
-    const url = await neonStartGoogleSignIn(window.location.origin + "/dang-ky");
+    const url = await appStartGoogle(window.location.origin + "/dang-ky");
     if (url) window.location.href = url;
     else {
       setError("Không bắt đầu được đăng ký Google");
@@ -107,7 +77,7 @@ export function RegisterForm() {
           <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" placeholder="••••••••" />
         </Field>
         {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-err">{error}</p>}
-        <Button type="submit" disabled={loading} className="w-full">
+        <Button type="submit" disabled={loading || oauthLoading} className="w-full">
           {loading ? "Đang tạo tài khoản..." : "Đăng ký tài khoản học sinh"}
         </Button>
       </form>
