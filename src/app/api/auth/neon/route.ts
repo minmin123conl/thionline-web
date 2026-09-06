@@ -14,9 +14,8 @@ import { createSession } from "@/lib/auth";
  * action:
  *  - sign-in: {email, password}
  *  - sign-up: {name, email, password}
- *  - social-start: {provider, callbackURL} → trả URL init Google
- *  - sync-user: {email, neonId, name} — gọi BỞI MIDDLEWARE sau OAuth exchange
- *    (chỉ chấp nhận khi có x-internal-key đúng CRON_SECRET)
+ *  - forgot-password: {email} → Neon Auth gửi email link đặt lại (anti-enumeration)
+ *  - reset-password: {token, newPassword} — token một lần từ email, hết hạn 1 giờ
  */
 
 const NEON_AUTH_URL = (process.env.NEON_AUTH_URL || process.env.NEXT_PUBLIC_NEON_AUTH_URL || "").replace(/\/+$/, "");
@@ -88,7 +87,7 @@ export async function POST(req: NextRequest) {
   if (!NEON_AUTH_URL) return NextResponse.json({ error: "Máy chủ chưa cấu hình NEON_AUTH_URL" }, { status: 503 });
 
   const body = (await req.json().catch(() => null)) as
-    | { action?: string; email?: string; password?: string; name?: string; provider?: string; callbackURL?: string; neonId?: string }
+    | { action?: string; email?: string; password?: string; name?: string; provider?: string; callbackURL?: string; neonId?: string; token?: string; newPassword?: string }
     | null;
   const action = body?.action;
   if (!action) return NextResponse.json({ error: "action không hợp lệ" }, { status: 400 });
@@ -96,24 +95,41 @@ export async function POST(req: NextRequest) {
   const origin = appUrl(req);
 
   try {
-    // ---- Đồng bộ user từ middleware (sau OAuth exchange) ----
-    if (action === "sync-user") {
-      const key = req.headers.get("x-internal-key");
-      if (!process.env.CRON_SECRET || key !== process.env.CRON_SECRET) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // ---- Quên mật khẩu: gửi email đặt lại ----
+    if (action === "forgot-password" && input.email) {
+      // Neon Auth trả OK kể cả email không tồn tại (chống dò email) —
+      // không bao giờ lộ thông tin tài khoản qua response khác nhau.
+      const res = await fetch(`${NEON_AUTH_URL}/request-password-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: origin },
+        body: JSON.stringify({ email: input.email, callbackURL: "/dat-lai-mat-khau" }),
+      });
+      if (!res.ok) {
+        // Lỗi hệ thống (không phải "email không tồn tại") — vẫn ẩn chi tiết
+        return NextResponse.json({ error: "Không gửi được email đặt lại — thử lại sau" }, { status: 502 });
       }
-      if (!input.email) return NextResponse.json({ error: "Thiếu email" }, { status: 400 });
-      // upsert user theo email (id Neon Auth có thể khác nếu tài khoản local cũ cùng email)
-      const existing = await db.select().from(users).where(eq(users.email, input.email.toLowerCase()));
-      if (existing.length === 0) {
-        if (!input.neonId) return NextResponse.json({ error: "Thiếu neonId" }, { status: 400 });
-        await db.insert(users).values({
-          id: input.neonId,
-          email: input.email.toLowerCase(),
-          passwordHash: "neon-auth",
-          name: input.name?.trim() || input.email.split("@")[0],
-          role: "STUDENT",
-        });
+      return NextResponse.json({ ok: true });
+    }
+
+    // ---- Đặt lại mật khẩu bằng token từ email ----
+    if (action === "reset-password" && input.token && input.newPassword) {
+      if (input.newPassword.length < 8) {
+        return NextResponse.json({ error: "Mật khẩu mới tối thiểu 8 ký tự" }, { status: 400 });
+      }
+      const res = await fetch(`${NEON_AUTH_URL}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: origin },
+        body: JSON.stringify({ newPassword: input.newPassword, token: input.token, callbackURL: "/dang-nhap" }),
+      });
+      const data = (await res.json().catch(() => null)) as { status?: boolean; code?: string; message?: string } | null;
+      if (!res.ok) {
+        const msg =
+          data?.code === "INVALID_TOKEN"
+            ? "Link đặt lại không hợp lệ hoặc đã hết hạn — yêu cầu link mới"
+            : data?.code === "WEAK_PASSWORD"
+              ? "Mật khẩu chưa đủ mạnh (tối thiểu 8 ký tự)"
+              : data?.message || "Không đặt lại được mật khẩu";
+        return NextResponse.json({ error: msg, code: data?.code }, { status: 400 });
       }
       return NextResponse.json({ ok: true });
     }
@@ -183,36 +199,6 @@ export async function POST(req: NextRequest) {
       if (!verified) return NextResponse.json({ error: "Không xác thực được session" }, { status: 401 });
 
       const out = await syncAndCreateSession(verified, input.name);
-      return NextResponse.json({ ok: true, ...out });
-    }
-
-    // ---- Bắt đầu Google OAuth ----
-    if (action === "social-start" && input.callbackURL) {
-      // callbackURL phải là path tương đối — Neon Auth ghép với Origin
-      const cbPath = input.callbackURL.startsWith("/") ? input.callbackURL : new URL(input.callbackURL).pathname;
-      const res = await fetch(`${NEON_AUTH_URL}/sign-in/social`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Origin: origin },
-        body: JSON.stringify({ provider: input.provider || "google", callbackURL: cbPath }),
-      });
-      const data = (await res.json().catch(() => null)) as { url?: string } | null;
-      if (!res.ok || !data?.url) return NextResponse.json({ error: "Không bắt đầu được OAuth" }, { status: 502 });
-      return NextResponse.json({ url: data.url });
-    }
-
-    // ---- Hoàn tất Google OAuth (browser quay về kèm cookie Neon Auth) ----
-    if (action === "finish-google") {
-      const cookie = req.headers.get("cookie") ?? "";
-      const neonCookie = cookie
-        .split(";")
-        .map((c) => c.trim())
-        .find((c) => c.startsWith("__Secure-neon-auth."));
-      if (!neonCookie) return NextResponse.json({ error: "Chưa có session Neon Auth" }, { status: 401 });
-
-      const verified = await verifySession(neonCookie);
-      if (!verified) return NextResponse.json({ error: "Session Neon Auth không hợp lệ" }, { status: 401 });
-
-      const out = await syncAndCreateSession(verified);
       return NextResponse.json({ ok: true, ...out });
     }
 

@@ -1,13 +1,8 @@
 /**
- * Neon Auth (Managed Better Auth) — tích hợp qua proxy route của app.
+ * Neon Auth (Managed Better Auth) — client helpers gọi qua proxy /api/auth/neon.
  *
- * Vì sao không gọi thẳng từ browser: cookie session Neon Auth là HttpOnly trên
- * domain Neon Auth; sign-in response có `token` nhưng thiếu signature để server
- * verify lại. Nên mọi luồng sign-in/sign-up đi qua /api/auth/neon (server-side),
- * server bọc cookie thật (token+signature từ set-cookie) để get-session verify,
- * rồi mới tạo session JWT của app.
- *
- * Client chỉ gọi: POST /api/auth/neon?action=sign-in|sign-up|social-start
+ * Mọi luồng sign-in/sign-up/forgot/reset đi qua server proxy để Neon Auth
+ * verify session (token+signature) trước khi tạo session JWT của app.
  */
 
 export type NeonAuthUser = {
@@ -52,23 +47,23 @@ export async function appSignUp(name: string, email: string, password: string): 
   return { ok: true, user: data.user };
 }
 
-/** Bắt đầu Google OAuth: trả URL init để browser chuyển hướng. callbackURL là PATH. */
-export async function appStartGoogle(callbackPath: string): Promise<string | null> {
+/** Yêu cầu email đặt lại mật khẩu (luôn báo thành công — chống dò email). */
+export async function appForgotPassword(email: string): Promise<boolean> {
   const res = await fetch("/api/auth/neon", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "social-start", provider: "google", callbackURL: callbackPath }),
+    body: JSON.stringify({ action: "forgot-password", email }),
   });
-  const data = (await res.json().catch(() => null)) as { url?: string } | null;
-  return data?.url ?? null;
+  return res.ok;
 }
 
-/** Sau khi Google redirect về: hoàn tất session app (server đọc cookie Neon Auth). */
-export async function appFinishGoogle(): Promise<{ ok: boolean; redirect?: string }> {
+/** Đặt lại mật khẩu bằng token từ email. */
+export async function appResetPassword(token: string, newPassword: string): Promise<{ ok: boolean; message?: string }> {
   const res = await fetch("/api/auth/neon", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "finish-google" }),
+    body: JSON.stringify({ action: "reset-password", token, newPassword }),
   });
-  return { ok: res.ok, redirect: (await res.json().catch(() => null))?.redirect };
+  const data = (await res.json().catch(() => null)) as { error?: string } | null;
+  return { ok: res.ok, message: data?.error };
 }
