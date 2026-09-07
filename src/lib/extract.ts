@@ -6,6 +6,7 @@ import { documents, extractedItems } from "./db/schema";
 import { extractQuestions, isAIConfigured } from "./ai";
 import { parseExamText } from "./parse-exam";
 import { ocrPdfPage, pdfPageCount } from "./ocr";
+import { extractPageMedia, attachMediaToQuestions, type PageMedia } from "./pdf-media";
 import type { ExtractedQuestion } from "./types";
 import { reserveDocumentAiCall, releaseDocumentAiCall } from "./ai-usage";
 
@@ -148,15 +149,41 @@ async function runOfflineStep(docId: string, doc: DocRow): Promise<ExtractStepRe
     }
     await db.update(documents).set({ status: "PROCESSING" }).where(eq(documents.id, docId));
     const { questions, warnings } = parseExamText(text);
-    const items = questions.map((q: ExtractedQuestion, i: number) => ({
-      documentId: docId,
-      seq: i + 1,
-      type: "QUESTION",
-      payload: q as never,
-      confidence: typeof q.confidence === "number" ? Math.max(0, Math.min(1, q.confidence)) : 0,
-      sourcePage: null,
-      status: "PENDING",
-    }));
+
+    // Media pass: PDF có lớp chữ → trích ảnh nhúng + bảng (vector) rồi gán vào
+    // đúng câu theo tọa độ. Bản scan không có lớp vector nên bỏ qua (OCR text only).
+    let mediaBySeq: Map<number, { mediaMd: string; page: number }> = new Map();
+    if (doc.fileType === "pdf_text" && doc.fileData) {
+      try {
+        const bytes = new Uint8Array(Buffer.from(doc.fileData, "base64"));
+        const pages: PageMedia[] = [];
+        for (let i = 0; i < Math.min(doc.totalPages, 60); i++) {
+          pages.push(await extractPageMedia(bytes, i));
+        }
+        mediaBySeq = await attachMediaToQuestions(pages, {
+          artAsImage: async () => null, // hình vẽ phức tạp: render sau nếu cần
+        });
+        const withMedia = mediaBySeq.size;
+        if (withMedia > 0) warnings.push(`${withMedia} câu có hình ảnh/bảng minh họa kèm theo.`);
+      } catch (e) {
+        // media fail không chặn parse chính
+        console.warn("[extract] media pass lỗi:", (e as Error).message);
+      }
+    }
+
+    const items = questions.map((q: ExtractedQuestion, i: number) => {
+      const media = mediaBySeq.get(q.seq);
+      const stem = media ? `${q.stem}\n\n${media.mediaMd}` : q.stem;
+      return {
+        documentId: docId,
+        seq: i + 1,
+        type: "QUESTION",
+        payload: { ...q, stem } as never,
+        confidence: typeof q.confidence === "number" ? Math.max(0, Math.min(1, q.confidence)) : 0,
+        sourcePage: media?.page ?? null,
+        status: "PENDING",
+      };
+    });
     if (items.length > 0) await db.insert(extractedItems).values(items);
     const error = items.length === 0 ? (warnings[0] ?? "Không nhận ra câu hỏi trong file") : "";
     await db
@@ -203,15 +230,35 @@ async function runAiStep(docId: string, doc: DocRow): Promise<ExtractStepResult>
     .from(extractedItems)
     .where(eq(extractedItems.documentId, docId));
   let seq = Number(existing[0]?.maxSeq ?? 0);
+
+  // Media pass 1 lần (lô cuối): PDF có lớp chữ → ảnh/bảng gán theo tọa độ câu
+  const newCursorPre = Math.min(cursor + chunk.length, text.length);
+  const donePre = newCursorPre >= text.length;
+  let mediaBySeq: Map<number, { mediaMd: string; page: number }> = new Map();
+  if (donePre && doc.fileType === "pdf_text" && doc.fileData) {
+    try {
+      const bytes = new Uint8Array(Buffer.from(doc.fileData, "base64"));
+      const pages: PageMedia[] = [];
+      for (let i = 0; i < Math.min(doc.totalPages, 60); i++) {
+        pages.push(await extractPageMedia(bytes, i));
+      }
+      mediaBySeq = await attachMediaToQuestions(pages, { artAsImage: async () => null });
+    } catch (e) {
+      console.warn("[extract][AI] media pass lỗi:", (e as Error).message);
+    }
+  }
+
   const items = (out.questions ?? []).map((q) => {
     seq += 1;
+    const media = mediaBySeq.get(seq);
+    const stem = media ? `${q.stem}\n\n${media.mediaMd}` : q.stem;
     return {
       documentId: docId,
       seq,
       type: "QUESTION",
-      payload: q as never,
+      payload: { ...q, stem } as never,
       confidence: typeof q.confidence === "number" ? Math.max(0, Math.min(1, q.confidence)) : 0,
-      sourcePage: null,
+      sourcePage: media?.page ?? null,
       status: "PENDING",
     };
   });
